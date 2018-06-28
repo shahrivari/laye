@@ -1,9 +1,11 @@
-package ir.rkr.cacheservice.JettyRest
+package ir.rkr.cacheservice.rest
 
 import com.google.gson.GsonBuilder
 import com.typesafe.config.Config
 import ir.rkr.cacheservice.ignite.IgniteConnector
 import ir.rkr.cacheservice.redis.RedisConnector
+import ir.rkr.cacheservice.util.fromJson
+import ir.rkr.cacheservice.version
 import org.eclipse.jetty.http.HttpStatus
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.servlet.ServletContextHandler
@@ -15,11 +17,6 @@ import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 
 /**
- * [Keys] is a data model for requests.
- */
-data class Keys(var keys: Array<String>)
-
-/**
  * [Results] is a data model for responses.
  */
 data class Results(var results: HashMap<String, String> = HashMap<String, String>())
@@ -29,16 +26,14 @@ data class Results(var results: HashMap<String, String> = HashMap<String, String
  * in-memory cache layer based on ignite to increase performance and decrease number of requests of
  * redis cluster.
  */
-class JettyRestServer(val ignite: IgniteConnector, val redis: RedisConnector, val config: Config) : HttpServlet() {
-
-    val gson = GsonBuilder().create()
+class JettyRestServer(val ignite: IgniteConnector, val redis: RedisConnector, config: Config) : HttpServlet() {
+    val gson = GsonBuilder().disableHtmlEscaping().create()
 
     /**
      * This function [checkDB] is used to ask value of a key from ignite server or redis server and update
      * ignite cluster.
      */
     private fun checkDB(key: String): String {
-
         var value = ignite.get(key)
 
         if (value.isPresent) {
@@ -58,27 +53,39 @@ class JettyRestServer(val ignite: IgniteConnector, val redis: RedisConnector, va
      */
     @Throws(ServletException::class, IOException::class)
     override fun doGet(req: HttpServletRequest, resp: HttpServletResponse) {
+        val msg = Results()
 
-        var msg = Results()
-        val parsedjson = gson.fromJson(req.reader.readLine(), Keys::class.java)
+        val parsedJson = gson.fromJson<Array<String>>(req.reader.readText())
 
-        for (key in parsedjson.keys.asIterable()) {
-            msg.results.set(key, checkDB(key))
+        for (key in parsedJson) {
+            msg.results[key] = checkDB(key)
         }
 
-        resp.status = HttpStatus.OK_200
-        resp.writer.println(gson.toJson(msg.results))
+        resp.apply {
+            status = HttpStatus.OK_200
+            addHeader("Content-Type", "application/json; charset=utf-8")
+            addHeader("Connection", "close")
+            writer.write(gson.toJson(msg.results))
+        }
     }
-
 
     /**
      * Start a jetty server.
      */
     init {
-        val server = Server(config.getInt("cacheservice.rest.port"))
+        val server = Server(config.getInt("rest.port"))
         val handler = ServletContextHandler(server, "/")
         handler.addServlet(ServletHolder(this), "/cache")
+        handler.addServlet(ServletHolder(object : HttpServlet() {
+            override fun doGet(req: HttpServletRequest, resp: HttpServletResponse) {
+                resp.apply {
+                    status = HttpStatus.OK_200
+                    addHeader("Content-Type", "text/plain; charset=utf-8")
+                    addHeader("Connection", "close")
+                    writer.write("Laye V$version is running :D")
+                }
+            }
+        }), "/health")
         server.start()
     }
-
 }

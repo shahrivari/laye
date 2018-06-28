@@ -1,0 +1,21 @@
+redis {
+    db = 0
+//    password = "123456"
+    port=6379
+    nodes = [
+        "127.0.0.1"
+    ]
+}
+
+ignite {
+    ip = "127.0.0.1"
+    port = 48500
+    cachename = rkrcache
+    nodes = ["127.0.0.1:48500"]
+}
+
+rest {
+    port = 7070
+    ip = 0.0.0.0
+    path = cache
+}

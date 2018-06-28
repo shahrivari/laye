@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration monitorInterval="60" status="TRACE">
+    <Properties>
+        <Property name="baseDir">/var/log/laye</Property>
+    </Properties>
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{yyy-MM-dd HH:mm:ss.SSS} %F:%L [%t] %-5level %logger{36} - %msg%n"/>
+        </Console>
+
+        <RollingFile name="RollingFile" fileName="${baseDir}/laye.log" bufferedIO="true" bufferSize="4096">
+            <FilePattern>${baseDir}/laye-%d{yyyy-MM-dd}-%i.log.gz</FilePattern>
+            <PatternLayout pattern="%d{yyy-MM-dd HH:mm:ss.SSS} %F:%L [%t] %-5level %logger{36} - %msg%n"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="500 MB"/>
+            </Policies>
+        </RollingFile>
+    </Appenders>
+
+    <Loggers>
+        <Logger name="ir.rkr" level="INFO" additivity="false">
+            <AppenderRef ref="RollingFile"/>
+            <!--<AppenderRef ref="Console"/>-->
+        </Logger>
+        <Root level="INFO" additivity="false">
+            <!--AppenderRef ref="Console"/-->
+            <AppenderRef ref="RollingFile"/>
+        </Root>
+    </Loggers>
+</Configuration>
