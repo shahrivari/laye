@@ -1,5 +1,6 @@
 package ir.rkr.cacheservice.rest
 
+import com.google.common.util.concurrent.RateLimiter
 import com.google.gson.GsonBuilder
 import com.typesafe.config.Config
 import ir.rkr.cacheservice.ignite.IgniteConnector
@@ -15,6 +16,7 @@ import javax.servlet.ServletException
 import javax.servlet.http.HttpServlet
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
+import kotlin.concurrent.thread
 
 /**
  * [Results] is a data model for responses.
@@ -27,8 +29,8 @@ data class Results(var results: HashMap<String, String> = HashMap<String, String
  * redis cluster.
  */
 class JettyRestServer(val ignite: IgniteConnector, val redis: RedisConnector, config: Config) : HttpServlet() {
-    val gson = GsonBuilder().disableHtmlEscaping().create()
-
+    private val gson = GsonBuilder().disableHtmlEscaping().create()
+    private val rateLimiter = RateLimiter.create(config.getDouble("rest.redisMaxRate"))
     /**
      * This function [checkDB] is used to ask value of a key from ignite server or redis server and update
      * ignite cluster.
@@ -39,20 +41,22 @@ class JettyRestServer(val ignite: IgniteConnector, val redis: RedisConnector, co
         if (value.isPresent) {
             return value.get()
         } else {
-            value = redis.get(key)
-            if (value.isPresent) {
-                ignite.put(key, value.get())
-                return value.get()
-            } else
-                return ""
+            if (!rateLimiter.tryAcquire()) return ""
+            thread {
+                value = redis.get(key)
+                if (value.isPresent) {
+                    ignite.put(key, value.get())
+                }
+            }
+            return ""
         }
     }
 
     /**
-     * [doGet] can handle multi-get requests for keys in json format.
+     * [doPost] can handle multi-get requests for keys in json format.
      */
     @Throws(ServletException::class, IOException::class)
-    override fun doGet(req: HttpServletRequest, resp: HttpServletResponse) {
+    override fun doPost(req: HttpServletRequest, resp: HttpServletResponse) {
         val msg = Results()
 
         val parsedJson = gson.fromJson<Array<String>>(req.reader.readText())

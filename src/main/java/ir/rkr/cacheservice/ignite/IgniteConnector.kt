@@ -37,7 +37,7 @@ class IgniteConnector(config: Config) {
         ipFinder.setAddresses(config.getStringList("ignite.nodes"))
         spi.ipFinder = ipFinder
 
-        val cacheName = config.getString("ignite.cachename")
+        val cacheName = config.getString("ignite.cacheName")
 
         val cacheCfg = CacheConfiguration<String, String>(cacheName)
                 .setCacheMode(CacheMode.REPLICATED)

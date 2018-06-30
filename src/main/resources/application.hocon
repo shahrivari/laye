@@ -10,11 +10,12 @@ redis {
 ignite {
     ip = "127.0.0.1"
     port = 48500
-    cachename = rkrcache
+    cacheName = rkrcache
     nodes = ["127.0.0.1:48500"]
 }
 
 rest {
+    redisMaxRate=10000
     port = 7070
     ip = 0.0.0.0
     path = cache
