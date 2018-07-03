@@ -24,18 +24,18 @@ class RedisConnector(config: Config) {
         }
 
         var pwd: String? = null
-        if (config.hasPath("redis.password")) {
-            pwd = config.getString("redis.password")
+        if (config.hasPath("password")) {
+            pwd = config.getString("password")
         }
 
         var numActiveRedis = 0
-        val nodeList = config.getStringList("redis.nodes")
+        val nodeList = config.getStringList("nodes")
 
         require(nodeList.isNotEmpty()) { "No redis server specified in config file." }
 
         for (server in nodeList) {
-            val pool = JedisPool(jedisCfg, server, config.getInt("redis.port"),
-                    1000, pwd, config.getInt("redis.db"))
+            val pool = JedisPool(jedisCfg, server, config.getInt("port"),
+                    1000, pwd, config.getInt("db"))
 
             try {
                 pool.resource.use {}

@@ -14,9 +14,11 @@ const val version = 0.1
 fun main(args: Array<String>) {
     val logger = KotlinLogging.logger {}
     val config = ConfigFactory.defaultApplication()
-    val redis = RedisConnector(config)
+    val redisUrl = RedisConnector(config.getConfig("redis.url"))
+    val redisTag = RedisConnector(config.getConfig("redis.tag"))
+
     val ignite = IgniteConnector(config)
 
-    JettyRestServer(ignite, redis, config)
+    JettyRestServer(ignite, redisUrl,redisTag, config)
     logger.info { "Laye V$version is ready :D" }
 }

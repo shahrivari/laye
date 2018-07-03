@@ -1,10 +1,19 @@
 redis {
+url{
     db = 0
 //    password = "123456"
     port=6379
     nodes = [
         "127.0.0.1"
-    ]
+    ]}
+    tag{
+        db = 0
+    //    password = "123456"
+        port=6379
+        nodes = [
+            "127.0.0.1"
+        ]
+    }
 }
 
 ignite {
