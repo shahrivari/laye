@@ -24,9 +24,8 @@ class RedisConnector(config: Config) {
         }
 
         var pwd: String? = null
-        if (config.hasPath("password")) {
-            pwd = config.getString("password")
-        }
+        if (config.hasPath("password"))  pwd = config.getString("password")
+
 
         var numActiveRedis = 0
         val nodeList = config.getStringList("nodes")

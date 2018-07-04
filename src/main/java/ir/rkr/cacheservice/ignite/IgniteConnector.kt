@@ -10,9 +10,12 @@ import org.apache.ignite.cache.CacheWriteSynchronizationMode
 import org.apache.ignite.configuration.CacheConfiguration
 import org.apache.ignite.configuration.DataStorageConfiguration
 import org.apache.ignite.configuration.IgniteConfiguration
-import java.util.*
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder
+import java.util.*
+import java.util.concurrent.TimeUnit
+import javax.cache.expiry.CreatedExpiryPolicy
+import javax.cache.expiry.Duration
 
 
 /**
@@ -24,6 +27,8 @@ class IgniteConnector(config: Config) {
     private val logger = KotlinLogging.logger {}
     val ignite: Ignite
     val igniteCache: IgniteCache<String, String>
+    val notInRedis: IgniteCache<String, Int>
+
 
     /**
      * Setup a ignite cluster.
@@ -62,7 +67,18 @@ class IgniteConnector(config: Config) {
 
 
         ignite = Ignition.start(cfg)
+
+        require(cacheName != "NotInRedis")
         igniteCache = ignite.getOrCreateCache<String, String>(cacheName)
+        notInRedis = ignite.getOrCreateCache<String, Int>("NotInRedis")
+                .withExpiryPolicy(CreatedExpiryPolicy(
+                        Duration(TimeUnit.MINUTES, config.getLong("ignite.ttlForNotInRedis"))))
+
+
+        if (config.hasPath("ignite.ttl")) igniteCache.withExpiryPolicy(CreatedExpiryPolicy(
+                Duration(TimeUnit.MINUTES, config.getLong("ignite.ttl"))))
+
+
     }
 
     /**
@@ -75,6 +91,7 @@ class IgniteConnector(config: Config) {
             logger.error(e) { "Error in putting value:$value for key:$key into Ignite." }
         }
     }
+
 
     /**
      * [get] is a function to retrieve value of a key.
@@ -89,4 +106,23 @@ class IgniteConnector(config: Config) {
             return Optional.empty()
         }
     }
+
+    fun addToNotInRedis(key: String) {
+        try {
+            if (!notInRedis.isClosed) notInRedis.put(key, 0)
+        } catch (e: Exception) {
+            logger.error(e) { "Error in putting value for key:$key into Ignite." }
+        }
+    }
+
+    fun isNotInRedis(key: String): Boolean {
+
+        try {
+            return notInRedis.containsKey(key)
+        } catch (e: Exception) {
+            logger.error(e) { "Error in ali reading value for key:$key from Ignite." }
+            return false
+        }
+    }
+
 }

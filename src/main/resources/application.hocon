@@ -1,5 +1,6 @@
 redis {
 url{
+    rateLimit=500
     db = 0
 //    password = "123456"
     port=6379
@@ -7,6 +8,7 @@ url{
         "127.0.0.1"
     ]}
     tag{
+        rateLimit=500
         db = 0
     //    password = "123456"
         port=6379
@@ -17,10 +19,13 @@ url{
 }
 
 ignite {
+
     ip = "127.0.0.1"
     port = 48500
     cacheName = rkrcache
     nodes = ["127.0.0.1:48500"]
+    //ttl = 0
+    ttlForNotInRedis = 1
 }
 
 rest {
