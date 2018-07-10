@@ -88,7 +88,7 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config) : HttpSer
                 val parsedJson = gson.fromJson<Array<String>>(req.reader.readText())
 
                 for (key in parsedJson) {
-                    msg.results[key] = checkUrl(key)
+                    if(key !=null ) msg.results[key] = checkUrl(key)
                 }
 
                 resp.apply {
@@ -110,7 +110,7 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config) : HttpSer
                 val parsedJson = gson.fromJson<Array<String>>(req.reader.readText())
 
                 for (key in parsedJson) {
-                    msg.results[key] = checkTag(key)
+                    if(key !=null ) msg.results[key] = checkTag(key)
                 }
 
                 resp.apply {

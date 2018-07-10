@@ -2,18 +2,21 @@ package ir.rkr.cacheservice.ignite
 
 import com.google.common.collect.EvictingQueue
 import ir.rkr.cacheservice.redis.RedisConnector
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.BlockingQueue
 import kotlin.concurrent.thread
 
 
 internal class IgniteFeeder(ignite: IgniteConnector, redis: RedisConnector, queueSize: Int = 100_000) {
 
-    val tmpQueue = EvictingQueue.create<String>(queueSize)
+
+    var tmpQueue: BlockingQueue<String> = ArrayBlockingQueue(queueSize)
 
     init {
         thread {
             while (true) {
                 val key = tmpQueue.poll()
-                if (!key.isNullOrEmpty()) {
+                if (!key.isNullOrBlank()) {
                     val value = redis.get(key)
                     if (value.isPresent) {
                         ignite.put(key, value.get())
@@ -26,6 +29,6 @@ internal class IgniteFeeder(ignite: IgniteConnector, redis: RedisConnector, queu
     }
 
     fun add(key: String) {
-        tmpQueue.add(key)
+        tmpQueue.offer(key)
     }
 }
