@@ -6,6 +6,7 @@ import mu.KotlinLogging
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig
 import redis.clients.jedis.JedisPool
 import java.util.*
+import kotlin.system.exitProcess
 
 /**
  * [RedisConnector] is service that connects to List to redis servers and can only perform
@@ -48,6 +49,7 @@ class RedisConnector(config: Config) {
         }
 
         require(numActiveRedis > 0) { "There is no Active Redis server ?!?! Bye Bye" }
+
     }
 
     /**

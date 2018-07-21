@@ -1,13 +1,14 @@
 package ir.rkr.cacheservice.ignite
 
-import com.google.common.collect.EvictingQueue
 import ir.rkr.cacheservice.redis.RedisConnector
+import ir.rkr.cacheservice.util.LayeMetrics
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
 import kotlin.concurrent.thread
 
 
-internal class IgniteFeeder(ignite: IgniteConnector, redis: RedisConnector, queueSize: Int = 100_000) {
+internal class IgniteFeeder(ignite: IgniteConnector, redis: RedisConnector, queueSize: Int = 100_000,
+                            val layemetrics: LayeMetrics, metricType: String) {
 
 
     var tmpQueue: BlockingQueue<String> = ArrayBlockingQueue(queueSize)
@@ -19,9 +20,12 @@ internal class IgniteFeeder(ignite: IgniteConnector, redis: RedisConnector, queu
                 if (!key.isNullOrBlank()) {
                     val value = redis.get(key)
                     if (value.isPresent) {
+                        layemetrics.MarkInRedis(1, metricType)
                         ignite.put(key, value.get())
+                    } else {
+                        layemetrics.MarkNotInRedis(1, metricType)
+                        ignite.addToNotInRedis(key)
                     }
-                    else ignite.addToNotInRedis(key)
                 }
                 Thread.sleep(1)
             }
