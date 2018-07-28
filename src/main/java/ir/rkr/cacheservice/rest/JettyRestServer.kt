@@ -57,6 +57,7 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
 
         if (value.isPresent) {
             layemetrics.MarkUrlInIgnite(1)
+            layemetrics.MarkInRedis(1,"URL")
             return value.get()
         } else {
             layemetrics.MarkUrlNotInIgnite(1)
@@ -83,6 +84,7 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
 
         if (value.isPresent) {
             layemetrics.MarkTagInIgnite(1)
+            layemetrics.MarkInRedis(1,"TAG")
             return value.get()
         } else {
             layemetrics.MarkTagNotInIgnite(1)
