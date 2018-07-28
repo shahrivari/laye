@@ -4,6 +4,7 @@ import ir.rkr.cacheservice.redis.RedisConnector
 import ir.rkr.cacheservice.util.LayeMetrics
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
+import java.util.function.Supplier
 import kotlin.concurrent.thread
 
 
@@ -14,9 +15,11 @@ internal class IgniteFeeder(ignite: IgniteConnector, redis: RedisConnector, queu
     var tmpQueue: BlockingQueue<String> = ArrayBlockingQueue(queueSize)
 
     init {
+        layemetrics.addGauge("${metricType}QueueSize", Supplier { tmpQueue.size })
+
         thread {
             while (true) {
-                val key = tmpQueue.poll()
+                val key = tmpQueue.take()
                 if (!key.isNullOrBlank()) {
                     val value = redis.get(key)
                     if (value.isPresent) {
@@ -27,7 +30,6 @@ internal class IgniteFeeder(ignite: IgniteConnector, redis: RedisConnector, queu
                         ignite.addToNotInRedis(key)
                     }
                 }
-                Thread.sleep(1)
             }
         }
     }

@@ -49,15 +49,13 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
         layemetrics.MarkCheckUrl(1)
 
         if (ignite.isNotInRedis(key)) {
-            layemetrics.MarkNotInRedis(1, "URL")
-            layemetrics.MarkUrlNotInIgnite(1)
+            layemetrics.MarkUrlIn5min(1)
             return ""
         }
         var value = ignite.get(key)
 
         if (value.isPresent) {
             layemetrics.MarkUrlInIgnite(1)
-            layemetrics.MarkInRedis(1,"URL")
             return value.get()
         } else {
             layemetrics.MarkUrlNotInIgnite(1)
@@ -76,15 +74,13 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
         layemetrics.MarkCheckTag(1)
 
         if (ignite.isNotInRedis(key)) {
-            layemetrics.MarkNotInRedis(1, "TAG")
-            layemetrics.MarkTagNotInIgnite(1)
+            layemetrics.MarkTagIn5min()
             return ""
         }
         var value = ignite.get(key)
 
         if (value.isPresent) {
             layemetrics.MarkTagInIgnite(1)
-            layemetrics.MarkInRedis(1,"TAG")
             return value.get()
         } else {
             layemetrics.MarkTagNotInIgnite(1)

@@ -13,7 +13,7 @@ import com.codahale.metrics.ConsoleReporter
 
 
 
-const val version = 0.1
+const val version = 0.2
 
 /**
  * CacheService main entry point.

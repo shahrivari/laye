@@ -1,7 +1,9 @@
 package ir.rkr.cacheservice.util
 
+import com.codahale.metrics.Gauge
 import com.codahale.metrics.Meter
 import com.codahale.metrics.MetricRegistry
+import java.util.function.Supplier
 
 
 data class MeterPojo(val count: Long,
@@ -10,6 +12,7 @@ data class MeterPojo(val count: Long,
                      val fiveMinuteRate: Double,
                      val fifteenMinuteRate: Double)
 
+data class ServerInfo(val gauges: Map<String, Any>, val meters: Map<String, MeterPojo>)
 
 class LayeMetrics {
 
@@ -26,9 +29,13 @@ class LayeMetrics {
 
     val UrlInRedis = metricRegistry.meter("UrlInRedis")
     val UrlNotInRedis = metricRegistry.meter("UrlNotInRedis")
+    val UrlIn5min = metricRegistry.meter("UrlIn5min")
 
     val TagInRedis = metricRegistry.meter("TagInRedis")
     val TagNotInRedis = metricRegistry.meter("TagNotInRedis")
+    val TagIn5min = metricRegistry.meter("TagIn5min")
+
+    fun <T> addGauge(name: String, supplier: Supplier<T>) = metricRegistry.register(name, Gauge<T> { supplier.get() })
 
     fun MarkCheckUrl(l: Long = 1) = CheckUrl.mark(l)
     fun MarkCheckTag(l: Long = 1) = CheckTag.mark(l)
@@ -39,6 +46,8 @@ class LayeMetrics {
     fun MarkTagInIgnite(l: Long = 1) = TagInIgnite.mark(l)
     fun MarkTagNotInIgnite(l: Long = 1) = TagNotInIgnite.mark(l)
 
+    fun MarkUrlIn5min(l: Long = 1) = UrlIn5min.mark(l)
+    fun MarkTagIn5min(l: Long = 1) = TagIn5min.mark(l)
 
     fun MarkInRedis(l: Long = 1, name: String) {
         if (name == "URL") UrlInRedis.mark(l)
@@ -51,11 +60,13 @@ class LayeMetrics {
     }
 
     private fun sortMetersByCount(meters: Map<String, Meter>) =
-            meters.toList().sortedBy { it.second.count }.reversed().map { Pair(it.first, it.second.toPojo()) }.toMap()
+            meters.toList().sortedBy { it.second.count }.reversed()
+                    .map { Pair(it.first, it.second.toPojo()) }.toMap()
 
     private fun Meter.toPojo() = MeterPojo(count, meanRate, oneMinuteRate, fiveMinuteRate, fifteenMinuteRate)
 
-    fun getInfo() = sortMetersByCount(metricRegistry.meters)
+    fun getInfo() = ServerInfo(metricRegistry.gauges.mapValues { it.value.value },
+            sortMetersByCount(metricRegistry.meters))
 
 
 }
