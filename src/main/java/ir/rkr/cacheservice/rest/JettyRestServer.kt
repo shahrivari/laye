@@ -9,12 +9,14 @@ import ir.rkr.cacheservice.redis.RedisConnector
 import ir.rkr.cacheservice.util.LayeMetrics
 import ir.rkr.cacheservice.util.fromJson
 import ir.rkr.cacheservice.version
+import mu.KotlinLogging
 import org.eclipse.jetty.http.HttpStatus
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.server.ServerConnector
 import org.eclipse.jetty.servlet.ServletContextHandler
 import org.eclipse.jetty.servlet.ServletHolder
 import org.eclipse.jetty.util.thread.QueuedThreadPool
+import java.util.concurrent.atomic.AtomicLong
 import javax.servlet.http.HttpServlet
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
@@ -39,11 +41,13 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
     private val redisTag = RedisConnector(config.getConfig("redis.tag"))
     private val urlQueue = IgniteFeeder(ignite, redisUrl, 100_000, layemetrics, "URL")
     private val tagQueue = IgniteFeeder(ignite, redisTag, 100_000, layemetrics, "TAG")
-
+    private val logger = KotlinLogging.logger {}
     /**
      * This function [checkUrl] is used to ask value of a key from ignite server or redis server and update
      * ignite cluster.
      */
+    private val churlCount = AtomicLong()
+
     private fun checkUrl(key: String): String {
 
         layemetrics.MarkCheckUrl(1)
@@ -54,6 +58,8 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
         }
         var value = ignite.get(key)
 
+       /* if (churlCount.incrementAndGet() % 10000L == 0L)
+            logger.info { "calls to ignite ${churlCount.get()}" }*/
         if (value.isPresent) {
             layemetrics.MarkUrlInIgnite(1)
             return value.get()
@@ -115,6 +121,7 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
 
                 val parsedJson = gson.fromJson<Array<String>>(req.reader.readText())
 
+                layemetrics.MarkUrlBatches(1)
                 for (key in parsedJson) {
 
                     if (key != null) msg.results[key] = checkUrl(key)
@@ -137,7 +144,7 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
                 val msg = Results()
 
                 val parsedJson = gson.fromJson<Array<String>>(req.reader.readText())
-
+                layemetrics.MarkTagBatches(1)
                 for (key in parsedJson) {
                     if (key != null) msg.results[key] = checkTag(key)
                 }

@@ -18,7 +18,10 @@ class LayeMetrics {
 
     val metricRegistry = MetricRegistry()
 
+    val UrlBatches = metricRegistry.meter("UrlBatches")
     val CheckUrl = metricRegistry.meter("CheckUrl")
+
+    val TagBatches = metricRegistry.meter("TagBatches")
     val CheckTag = metricRegistry.meter("CheckTag")
 
     val UrlInIgnite = metricRegistry.meter("UrlInIgnite")
@@ -35,9 +38,12 @@ class LayeMetrics {
     val TagNotInRedis = metricRegistry.meter("TagNotInRedis")
     val TagIn5min = metricRegistry.meter("TagIn5min")
 
-    fun <T> addGauge(name: String, supplier: Supplier<T>) = metricRegistry.register(name, Gauge<T> { supplier.get() })
 
+
+    fun MarkUrlBatches(l: Long = 1) = UrlBatches.mark(l)
     fun MarkCheckUrl(l: Long = 1) = CheckUrl.mark(l)
+
+    fun MarkTagBatches(l: Long = 1) = TagBatches.mark(l)
     fun MarkCheckTag(l: Long = 1) = CheckTag.mark(l)
 
     fun MarkUrlInIgnite(l: Long = 1) = UrlInIgnite.mark(l)
@@ -58,6 +64,8 @@ class LayeMetrics {
         if (name == "URL") UrlNotInRedis.mark(l)
         if (name == "TAG") TagNotInRedis.mark(l)
     }
+
+    fun <T> addGauge(name: String, supplier: Supplier<T>) = metricRegistry.register(name, Gauge<T> { supplier.get() })
 
     private fun sortMetersByCount(meters: Map<String, Meter>) =
             meters.toList().sortedBy { it.second.count }.reversed()

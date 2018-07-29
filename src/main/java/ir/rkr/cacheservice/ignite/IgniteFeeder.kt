@@ -19,7 +19,7 @@ internal class IgniteFeeder(ignite: IgniteConnector, redis: RedisConnector, queu
 
         thread {
             while (true) {
-                val key = tmpQueue.take()
+                val key = tmpQueue.poll()
                 if (!key.isNullOrBlank()) {
                     val value = redis.get(key)
                     if (value.isPresent) {
@@ -29,6 +29,8 @@ internal class IgniteFeeder(ignite: IgniteConnector, redis: RedisConnector, queu
                         layemetrics.MarkNotInRedis(1, metricType)
                         ignite.addToNotInRedis(key)
                     }
+                }else{
+                    Thread.sleep(1)
                 }
             }
         }
