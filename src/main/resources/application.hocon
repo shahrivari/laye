@@ -24,7 +24,7 @@ ignite {
     port = 48500
     cacheName = rkrcache
     nodes = ["127.0.0.1:48500"]
-    //ttl = 0
+    ttl = 12
     ttlForNotInRedis = 1
 }
 

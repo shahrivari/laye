@@ -18,10 +18,10 @@ class RedisConnector(config: Config) {
 
     init {
         val jedisCfg = GenericObjectPoolConfig().apply {
-            maxIdle = 10
-            maxTotal = 20
-            minIdle = 5
-            maxWaitMillis = 60000
+            maxIdle = 200
+            maxTotal = 400
+            minIdle = 50
+            maxWaitMillis = 800
         }
 
         var pwd: String? = null
@@ -35,7 +35,7 @@ class RedisConnector(config: Config) {
 
         for (server in nodeList) {
             val pool = JedisPool(jedisCfg, server, config.getInt("port"),
-                    1000, pwd, config.getInt("db"))
+                    800, pwd, config.getInt("db"))
 
             try {
                 pool.resource.use {}
@@ -70,6 +70,34 @@ class RedisConnector(config: Config) {
         } catch (e: Exception) {
             logger.trace(e) { "There is no resource in pool for redis.get." }
             return Optional.empty()
+        }
+    }
+
+    /**
+     * [get] is function for asking value of a key.
+     */
+    fun mget(keys: List<String>): MutableMap<String, Optional<String>> {
+        val pool = jedisPoolList.randomItem().get()
+
+        var result = keys.map { it to Optional.empty<String>() }.toMap().toMutableMap()
+        try {
+            pool.resource.use { redis ->
+                if (redis.isConnected) {
+                    val values = redis.mget(*keys.toTypedArray())
+//                    if (value != null) return Optional.of(value)
+                    result = keys.zip(values).toMap().mapValues {
+                        if (it.value == null)
+                            Optional.empty<String>()
+                        else
+                            Optional.of(it.value)
+                    }.toMutableMap()
+                }
+                return result
+            }
+
+        } catch (e: Exception) {
+            logger.trace(e) { "There is no resource in pool for redis.get." }
+            return result
         }
     }
 }
