@@ -22,7 +22,7 @@ fun main(args: Array<String>) {
     val logger = KotlinLogging.logger {}
     val config = ConfigFactory.defaultApplication()
     val layemetrics = LayeMetrics()
-    val ignite = IgniteConnector(config)
+    val ignite = IgniteConnector(config,layemetrics)
 
     JettyRestServer(ignite, config, layemetrics)
     logger.info { "Laye V$version is ready :D" }

@@ -1,6 +1,9 @@
 package ir.rkr.cacheservice.ignite
 
+import com.google.common.cache.Cache
+import com.google.common.cache.CacheBuilder
 import com.typesafe.config.Config
+import ir.rkr.cacheservice.util.LayeMetrics
 import mu.KotlinLogging
 import org.apache.ignite.Ignite
 import org.apache.ignite.IgniteCache
@@ -10,10 +13,10 @@ import org.apache.ignite.cache.CacheWriteSynchronizationMode
 import org.apache.ignite.configuration.*
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder
+import java.time.Duration
 import java.util.*
 import java.util.concurrent.TimeUnit
-import javax.cache.expiry.CreatedExpiryPolicy
-import javax.cache.expiry.Duration
+import java.util.function.Supplier
 
 
 /**
@@ -21,19 +24,18 @@ import javax.cache.expiry.Duration
  * cluster that specified in config file. Synchronization between nodes of cluster is being done
  * automatically in background. It can handle get and put for a key.
  */
-class IgniteConnector(config: Config) {
+class IgniteConnector(config: Config,layemetrics :LayeMetrics) {
     private val logger = KotlinLogging.logger {}
     val ignite: Ignite
     val igniteCache: IgniteCache<String, String>
-    val notInRedis: IgniteCache<String, Int>
-    //  val stmr: IgniteDataStreamer<String, String>
-    //  val stmrAddToNotInRedis: IgniteDataStreamer<String, Int>
+    val notInRedis: Cache<String, Int>
     val cacheName: String
 
     /**
      * Setup a ignite cluster.
      */
     init {
+
         val spi = TcpDiscoverySpi()
         spi.localAddress = config.getString("ignite.ip")
         spi.localPort = config.getInt("ignite.port")
@@ -44,12 +46,16 @@ class IgniteConnector(config: Config) {
 
         cacheName = config.getString("ignite.cacheName")
 
+
         val cacheCfg = CacheConfiguration<String, String>(cacheName)
                 .setCacheMode(CacheMode.REPLICATED)
                 .setRebalanceBatchSize(10 * 1024 * 1024)
                 .setRebalanceThrottle(0)
                 .setRebalanceDelay(0)
                 .setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC)
+//                .setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(
+//                        Duration(TimeUnit.MINUTES,config.getLong("ignite.ttl"))))
+
 
         val storageCfg = DataStorageConfiguration()
                 .setConcurrencyLevel(100)
@@ -65,32 +71,22 @@ class IgniteConnector(config: Config) {
         storageCfg.setDataRegionConfigurations(regionCfg)
 
         val cfg = IgniteConfiguration()
-                .setServiceThreadPoolSize(30)
-                .setDataStreamerThreadPoolSize(30)
+                .setServiceThreadPoolSize(300)
+                .setDataStreamerThreadPoolSize(300)
                 .setCacheConfiguration(cacheCfg)
                 .setActiveOnStart(true)
                 .setDataStorageConfiguration(storageCfg)
                 .setDiscoverySpi(spi)
 
-
         ignite = Ignition.start(cfg)
 
-        require(cacheName != "NotInRedis")
+        //require(cacheName != "NotInRedis")
         igniteCache = ignite.getOrCreateCache<String, String>(cacheName)
-                .withExpiryPolicy(CreatedExpiryPolicy(
-                        Duration(TimeUnit.HOURS, config.getLong("ignite.ttl"))))
-
-        notInRedis = ignite.getOrCreateCache<String, Int>("NotInRedis")
-                .withExpiryPolicy(CreatedExpiryPolicy(
-                        Duration(TimeUnit.MINUTES, config.getLong("ignite.ttlForNotInRedis"))))
-
-
-        //  stmr = ignite.dataStreamer<String, String>(cacheName)
-        // stmrAddToNotInRedis = ignite.dataStreamer<String, Int>("NotInRedis")
-
-        /*  if (config.hasPath("ignite.ttl")) igniteCache.withExpiryPolicy(CreatedExpiryPolicy(
-                  Duration(TimeUnit.MINUTES, config.getLong("ignite.ttl"))))*/
-
+        notInRedis = CacheBuilder.newBuilder()
+              //  .expireAfterWrite(config.getLong("ignite.ttlForNotInRedis"),TimeUnit.MINUTES)
+                .maximumSize(config.getLong("ignite.guavaNotInRedis"))
+                .build<String, Int>()
+        layemetrics.addGauge("GuavaSize", Supplier { notInRedis.size() })
 
     }
 
@@ -110,17 +106,13 @@ class IgniteConnector(config: Config) {
     }
 
     fun streamAddToNotInRedis(input: List<String>) {
-
         try {
-            ignite.dataStreamer<String, Int>("NotInRedis").use {
-                for (key in input) {
-                    it.addData(key, 0)
-                }
+            for (key in input) {
+                notInRedis.put(key, 0)
             }
         } catch (e: Exception) {
             logger.error(e) { "Error in streamPut" }
         }
-
 
     }
 
@@ -160,30 +152,11 @@ class IgniteConnector(config: Config) {
         }
     }
 
-    fun addToNotInRedis(key: String) {
-        try {
-            if (!notInRedis.isClosed) notInRedis.put(key, 0)
-        } catch (e: Exception) {
-            logger.error(e) { "Error in putting value for key:$key into Ignite." }
-        }
-    }
-
-    fun multiAddToNotInRedis(input: List<String>) {
-        try {
-            if (!notInRedis.isClosed) notInRedis.putAll(input.map { it to 0 }.toMap())
-        } catch (e: Exception) {
-            logger.error(e) { "Error in putting " }
-        }
-    }
 
     fun isNotInRedis(key: String): Boolean {
 
-        try {
-            return notInRedis.containsKey(key)
-        } catch (e: Exception) {
-            logger.error(e) { "Error in ali reading value for key:$key from Ignite." }
-            return false
-        }
+        return notInRedis.getIfPresent(key) != null
+
     }
 
 }
