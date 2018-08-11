@@ -40,11 +40,12 @@ class Rkr : Serializable {
  * cluster that specified in config file. Synchronization between nodes of cluster is being done
  * automatically in background. It can handle get and put for a key.
  */
-class IgniteConnector(config: Config, layemetrics: LayeMetrics) {
+class IgniteConnector(val config: Config, layemetrics: LayeMetrics) {
     private val logger = KotlinLogging.logger {}
     val ignite: Ignite
     val igniteCache: IgniteCache<String, String>
     val notInRedis: Cache<String, Int>
+ //   val hot: Cache<String, Int>
     val cacheName: String
 
     /**
@@ -125,6 +126,11 @@ class IgniteConnector(config: Config, layemetrics: LayeMetrics) {
                 //  .expireAfterWrite(config.getLong("ignite.ttlForNotInRedis"),TimeUnit.MINUTES)
                 .maximumSize(config.getLong("ignite.guavaNotInRedis"))
                 .build<String, Int>()
+
+     /*   hot = CacheBuilder.newBuilder()
+                //  .expireAfterWrite(config.getLong("ignite.ttlForNotInRedis"),TimeUnit.MINUTES)
+                .maximumSize(config.getLong("ignite.guavaNotInRedis"))
+                .build<String, Int>()*/
         layemetrics.addGauge("GuavaSize", Supplier { notInRedis.size() })
 
     }
@@ -188,6 +194,12 @@ class IgniteConnector(config: Config, layemetrics: LayeMetrics) {
         try {
             val value = igniteCache.get(key)
             if (value == null) return Optional.empty<String>()
+            /*
+            val res = hot.get(key,{0})
+            hot.put(key,res+1)
+            if (res > config.getInt("ignite.hot")){
+                logger.info { "The $key is Available and very hot: $res" }
+            }*/
             return Optional.of(value)
         } catch (e: Exception) {
             logger.error(e) { "Error in reading value for key:$key from Ignite." }
@@ -198,14 +210,21 @@ class IgniteConnector(config: Config, layemetrics: LayeMetrics) {
 
     fun isNotInRedis(key: String): Boolean {
 
+     /*   if (notInRedis.getIfPresent(key) != null) {
+            val value = notInRedis.get(key, { 0 }) + 1
+            notInRedis.put(key, value)
+            if (value > config.getInt("ignite.hot")) {
+                logger.info("$key is a very hot : $value")
+                return true
+            } else return true
+        } else return false*/
         return notInRedis.getIfPresent(key) != null
-
     }
 
     /**
      * [query] is a function to perform sql query on ignite cache.
      */
-    fun query(qry: String) :String{
+    fun query(qry: String): String {
         return igniteCache.query(SqlFieldsQuery(qry)).all.toString()
 
     }

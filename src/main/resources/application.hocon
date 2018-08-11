@@ -27,6 +27,7 @@ ignite {
     ttl = 12
     ttlForNotInRedis = 1
     guavaNotInRedis = 3000000
+    hot=5
 }
 
 rest {
