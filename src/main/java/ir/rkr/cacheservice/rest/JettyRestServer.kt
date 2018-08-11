@@ -171,6 +171,19 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
             }
         }), "/metrics")
 
+        handler.addServlet(ServletHolder(object : HttpServlet() {
+            override fun doPost(req: HttpServletRequest, resp: HttpServletResponse) {
+
+                val parsedJson = gson.fromJson<Array<String>>(req.reader.readText())
+
+                resp.apply {
+                    status = HttpStatus.OK_200
+                    addHeader("Content-Type", "application/json; charset=utf-8")
+                    //addHeader("Connection", "close")
+                    writer.write(gson.toJson(ignite.query(parsedJson[0])))
+                }
+            }
+        }), "/query")
 
         handler.addServlet(ServletHolder(object : HttpServlet() {
             override fun doGet(req: HttpServletRequest, resp: HttpServletResponse) {

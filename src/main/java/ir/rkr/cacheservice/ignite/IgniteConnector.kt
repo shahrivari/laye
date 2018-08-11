@@ -10,21 +10,37 @@ import org.apache.ignite.IgniteCache
 import org.apache.ignite.Ignition
 import org.apache.ignite.cache.CacheMode
 import org.apache.ignite.cache.CacheWriteSynchronizationMode
+import org.apache.ignite.cache.QueryEntity
+import org.apache.ignite.cache.QueryIndex
+import org.apache.ignite.cache.query.SqlFieldsQuery
+import org.apache.ignite.cache.query.annotations.QuerySqlField
 import org.apache.ignite.configuration.*
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder
-import java.time.Duration
+import java.io.Serializable
 import java.util.*
-import java.util.concurrent.TimeUnit
 import java.util.function.Supplier
+import kotlin.collections.HashMap
 
+
+class Rkr : Serializable {
+    /** Person ID (indexed).  */
+    @QuerySqlField(index = true)
+    private val k: String = ""
+
+    /** Organization ID (indexed).  */
+    @QuerySqlField(index = true)
+    private val v: String = ""
+
+
+}
 
 /**
  * [IgniteConnector] is service that starts up an ignite cache server as a member of ignite
  * cluster that specified in config file. Synchronization between nodes of cluster is being done
  * automatically in background. It can handle get and put for a key.
  */
-class IgniteConnector(config: Config,layemetrics :LayeMetrics) {
+class IgniteConnector(config: Config, layemetrics: LayeMetrics) {
     private val logger = KotlinLogging.logger {}
     val ignite: Ignite
     val igniteCache: IgniteCache<String, String>
@@ -46,13 +62,36 @@ class IgniteConnector(config: Config,layemetrics :LayeMetrics) {
 
         cacheName = config.getString("ignite.cacheName")
 
+        val fields = LinkedHashMap<String, String>()
+        fields.put("k", String::class.java.name)
+        fields.put("v", String::class.java.name)
+
+        val aliases = HashMap<String, String>()
+        aliases.put("k", "k")
+        aliases.put("v", "v")
+
+
+        val qryCfg = QueryEntity()
+                .setTableName("rkrtable")
+                .setKeyType(String::class.java.name)
+                .setValueType(String::class.java.name)
+                .setFields(fields)
+                .setKeyFieldName("k")
+                .setValueFieldName("v")
+                .setKeyFields(mutableSetOf("k"))
+                .setIndexes(arrayListOf(QueryIndex("k")))
+                .setAliases(aliases)
+
 
         val cacheCfg = CacheConfiguration<String, String>(cacheName)
+                .setName(cacheName)
                 .setCacheMode(CacheMode.REPLICATED)
                 .setRebalanceBatchSize(10 * 1024 * 1024)
                 .setRebalanceThrottle(0)
                 .setRebalanceDelay(0)
                 .setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC)
+                .setQueryEntities(arrayListOf(qryCfg))
+                .setSqlSchema("PUBLIC")
 //                .setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(
 //                        Duration(TimeUnit.MINUTES,config.getLong("ignite.ttl"))))
 
@@ -79,18 +118,20 @@ class IgniteConnector(config: Config,layemetrics :LayeMetrics) {
                 .setDiscoverySpi(spi)
 
         ignite = Ignition.start(cfg)
-
-        //require(cacheName != "NotInRedis")
         igniteCache = ignite.getOrCreateCache<String, String>(cacheName)
+        println(cacheCfg.queryEntities)
+
         notInRedis = CacheBuilder.newBuilder()
-              //  .expireAfterWrite(config.getLong("ignite.ttlForNotInRedis"),TimeUnit.MINUTES)
+                //  .expireAfterWrite(config.getLong("ignite.ttlForNotInRedis"),TimeUnit.MINUTES)
                 .maximumSize(config.getLong("ignite.guavaNotInRedis"))
                 .build<String, Int>()
         layemetrics.addGauge("GuavaSize", Supplier { notInRedis.size() })
 
     }
 
-
+    /**
+     *[streamPut] is a function to add fast stream data into ignite cache.
+     */
     fun streamPut(input: Map<String, String>) {
 
         try {
@@ -102,9 +143,11 @@ class IgniteConnector(config: Config,layemetrics :LayeMetrics) {
         } catch (e: Exception) {
             logger.error(e) { "Error in streamPut" }
         }
-
     }
 
+    /**
+     * [streamAddToNotInRedis] is a function to put key in not redis guava cache.
+     * */
     fun streamAddToNotInRedis(input: List<String>) {
         try {
             for (key in input) {
@@ -156,6 +199,14 @@ class IgniteConnector(config: Config,layemetrics :LayeMetrics) {
     fun isNotInRedis(key: String): Boolean {
 
         return notInRedis.getIfPresent(key) != null
+
+    }
+
+    /**
+     * [query] is a function to perform sql query on ignite cache.
+     */
+    fun query(qry: String) :String{
+        return igniteCache.query(SqlFieldsQuery(qry)).all.toString()
 
     }
 

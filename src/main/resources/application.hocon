@@ -26,6 +26,7 @@ ignite {
     nodes = ["127.0.0.1:48500"]
     ttl = 12
     ttlForNotInRedis = 1
+    guavaNotInRedis = 3000000
 }
 
 rest {
