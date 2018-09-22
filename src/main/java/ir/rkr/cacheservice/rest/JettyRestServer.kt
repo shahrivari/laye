@@ -63,8 +63,8 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
         if (value.isPresent) {
             layemetrics.MarkUrlInIgnite(1)
             if (Math.random() < config.getDouble("redis.url.sslRatio"))
-                return value.get()
-                    .replace("http://","https://")
+                return value.get().replace(config.getString("rest.replace.from"), config.getString("rest.replace.to"))
+            //.replace("http://","https://")
             return value.get()
         } else {
             layemetrics.MarkUrlNotInIgnite(1)
