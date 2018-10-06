@@ -45,7 +45,7 @@ class IgniteConnector(val config: Config, layemetrics: LayeMetrics) {
     val ignite: Ignite
     val igniteCache: IgniteCache<String, String>
     val notInRedis: Cache<String, Int>
- //   val hot: Cache<String, Int>
+    //   val hot: Cache<String, Int>
     val cacheName: String
 
     /**
@@ -127,10 +127,10 @@ class IgniteConnector(val config: Config, layemetrics: LayeMetrics) {
                 .maximumSize(config.getLong("ignite.guavaNotInRedis"))
                 .build<String, Int>()
 
-     /*   hot = CacheBuilder.newBuilder()
-                //  .expireAfterWrite(config.getLong("ignite.ttlForNotInRedis"),TimeUnit.MINUTES)
-                .maximumSize(config.getLong("ignite.guavaNotInRedis"))
-                .build<String, Int>()*/
+        /*   hot = CacheBuilder.newBuilder()
+                   //  .expireAfterWrite(config.getLong("ignite.ttlForNotInRedis"),TimeUnit.MINUTES)
+                   .maximumSize(config.getLong("ignite.guavaNotInRedis"))
+                   .build<String, Int>()*/
         layemetrics.addGauge("GuavaSize", Supplier { notInRedis.size() })
 
     }
@@ -138,12 +138,14 @@ class IgniteConnector(val config: Config, layemetrics: LayeMetrics) {
     /**
      *[streamPut] is a function to add fast stream data into ignite cache.
      */
-    fun streamPut(input: Map<String, String>) {
+    fun streamPut(input: Map<String, String>, metricType: String, withPrefix: Boolean = false) {
 
+        var prefix = ""
+        if (withPrefix) prefix = metricType.toLowerCase()
         try {
             ignite.dataStreamer<String, String>(cacheName).use {
                 for ((key, value) in input) {
-                    it.addData(key, value)
+                    it.addData("$prefix$key", value)
                 }
             }
         } catch (e: Exception) {
@@ -208,21 +210,21 @@ class IgniteConnector(val config: Config, layemetrics: LayeMetrics) {
     }
 
 
-    fun hasKey(key: String):Boolean{
+    fun hasKey(key: String): Boolean {
         return igniteCache.containsKey(key)
 
     }
 
     fun isNotInRedis(key: String): Boolean {
 
-     /*   if (notInRedis.getIfPresent(key) != null) {
-            val value = notInRedis.get(key, { 0 }) + 1
-            notInRedis.put(key, value)
-            if (value > config.getInt("ignite.hot")) {
-                logger.info("$key is a very hot : $value")
-                return true
-            } else return true
-        } else return false*/
+        /*   if (notInRedis.getIfPresent(key) != null) {
+               val value = notInRedis.get(key, { 0 }) + 1
+               notInRedis.put(key, value)
+               if (value > config.getInt("ignite.hot")) {
+                   logger.info("$key is a very hot : $value")
+                   return true
+               } else return true
+           } else return false*/
         return notInRedis.getIfPresent(key) != null
     }
 
