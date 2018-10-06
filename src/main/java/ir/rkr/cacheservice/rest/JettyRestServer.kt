@@ -43,6 +43,8 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
     private val redisUsr = RedisConnector(config.getConfig("redis.usr"))
     private val urlQueue = IgniteFeeder(ignite, redisUrl, 100_000, layemetrics, "URL")
     private val tagQueue = IgniteFeeder(ignite, redisTag, 100_000, layemetrics, "TAG")
+    private val usrQueue = IgniteFeeder(ignite, redisUsr, 100_000, layemetrics, "USR")
+
     private val logger = KotlinLogging.logger {}
     /**
      * This function [checkUrl] is used to ask value of a key from ignite server or redis server and update
@@ -84,17 +86,20 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
 
         layemetrics.MarkCheckUsr(1)
 
-        if (ignite.hasKey("usr$key")) {
+        if (ignite.hasKey(key)) {
             layemetrics.MarkUsrInIgnite(1)
             return "0"
         } else {
             layemetrics.MarkUsrNotInIgnite(1)
-            if (!usrRateLimiter.tryAcquire()) return "0"
+            if (!usrRateLimiter.tryAcquire()) {
+                usrQueue.add(key)
+                return "0"
+            }
 
             val usr = redisUsr.get(key)
             if (usr.isPresent) {
                 layemetrics.MarkInRedis(1, "USR")
-                ignite.put("usr$key", "0")
+                ignite.put(key, "0")
                 return "0"
             }
             layemetrics.MarkNotInRedis(1, "USR")
