@@ -37,8 +37,10 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
     private val gson = GsonBuilder().disableHtmlEscaping().create()
     private val urlRateLimiter = RateLimiter.create(config.getDouble("redis.url.rateLimit"))
     private val tagRateLimiter = RateLimiter.create(config.getDouble("redis.tag.rateLimit"))
+    private val usrRateLimiter = RateLimiter.create(config.getDouble("redis.usr.rateLimit"))
     private val redisUrl = RedisConnector(config.getConfig("redis.url"))
     private val redisTag = RedisConnector(config.getConfig("redis.tag"))
+    private val redisUsr = RedisConnector(config.getConfig("redis.usr"))
     private val urlQueue = IgniteFeeder(ignite, redisUrl, 100_000, layemetrics, "URL")
     private val tagQueue = IgniteFeeder(ignite, redisTag, 100_000, layemetrics, "TAG")
     private val logger = KotlinLogging.logger {}
@@ -58,8 +60,8 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
         }
         var value = ignite.get(key)
 
-       /* if (churlCount.incrementAndGet() % 10000L == 0L)
-            logger.info { "calls to ignite ${churlCount.get()}" }*/
+        /* if (churlCount.incrementAndGet() % 10000L == 0L)
+             logger.info { "calls to ignite ${churlCount.get()}" }*/
         if (value.isPresent) {
             layemetrics.MarkUrlInIgnite(1)
             if (Math.random() < config.getDouble("redis.url.sslRatio"))
@@ -73,6 +75,33 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
             return ""
         }
     }
+
+    /**
+     * This function [checkUsr] is used to ask value of a key from ignite server or redis server and update
+     * ignite cluster.
+     */
+    private fun checkUsr(key: String): String {
+
+        layemetrics.MarkCheckUsr(1)
+
+        if (ignite.hasKey("usr$key")) {
+            layemetrics.MarkUsrInIgnite(1)
+            return "0"
+        } else {
+            layemetrics.MarkUsrNotInIgnite(1)
+            if (!usrRateLimiter.tryAcquire()) return "0"
+
+            val usr = redisUsr.get(key)
+            if (usr.isPresent) {
+                layemetrics.MarkInRedis(1, "USR")
+                ignite.put("usr$key", "0")
+                return "0"
+            }
+            layemetrics.MarkNotInRedis(1, "USR")
+            return "1"
+        }
+    }
+
 
     /**
      * This function [checkTag] is used to ask value of a key from ignite server or redis server and update
@@ -161,6 +190,28 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
             }
         }), "/cache/tag")
 
+
+        /**
+         * It can handle multi-get requests for Usrs in json format.
+         */
+        handler.addServlet(ServletHolder(object : HttpServlet() {
+            override fun doPost(req: HttpServletRequest, resp: HttpServletResponse) {
+                val msg = Results()
+
+                val parsedJson = gson.fromJson<Array<String>>(req.reader.readText())
+                layemetrics.MarkUsrBatches(1)
+                for (key in parsedJson) {
+                    if (key != null) msg.results[key] = checkUsr(key)
+                }
+
+                resp.apply {
+                    status = HttpStatus.OK_200
+                    addHeader("Content-Type", "application/json; charset=utf-8")
+                    //addHeader("Connection", "close")
+                    writer.write(gson.toJson(msg.results))
+                }
+            }
+        }), "/cache/usr")
 
         handler.addServlet(ServletHolder(object : HttpServlet() {
             override fun doGet(req: HttpServletRequest, resp: HttpServletResponse) {

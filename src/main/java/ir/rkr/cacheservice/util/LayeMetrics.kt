@@ -24,11 +24,17 @@ class LayeMetrics {
     val TagBatches = metricRegistry.meter("TagBatches")
     val CheckTag = metricRegistry.meter("CheckTag")
 
+    val UsrBatches = metricRegistry.meter("UsrBatches")
+    val CheckUsr = metricRegistry.meter("CheckUsr")
+
     val UrlInIgnite = metricRegistry.meter("UrlInIgnite")
     val UrlNotInIgnite = metricRegistry.meter("UrlNotInIgnite")
 
     val TagInIgnite = metricRegistry.meter("TagInIgnite")
     val TagNotInIgnite = metricRegistry.meter("TagNotInIgnite")
+
+    val UsrInIgnite = metricRegistry.meter("UsrInIgnite")
+    val UsrNotInIgnite = metricRegistry.meter("UsrNotInIgnite")
 
     val UrlInRedis = metricRegistry.meter("UrlInRedis")
     val UrlNotInRedis = metricRegistry.meter("UrlNotInRedis")
@@ -38,7 +44,8 @@ class LayeMetrics {
     val TagNotInRedis = metricRegistry.meter("TagNotInRedis")
     val TagIn5min = metricRegistry.meter("TagIn5min")
 
-
+    val UsrInRedis = metricRegistry.meter("UsrInRedis")
+    val UsrNotInRedis = metricRegistry.meter("UsrNotInRedis")
 
     fun MarkUrlBatches(l: Long = 1) = UrlBatches.mark(l)
     fun MarkCheckUrl(l: Long = 1) = CheckUrl.mark(l)
@@ -55,14 +62,24 @@ class LayeMetrics {
     fun MarkUrlIn5min(l: Long = 1) = UrlIn5min.mark(l)
     fun MarkTagIn5min(l: Long = 1) = TagIn5min.mark(l)
 
+    fun MarkUsrBatches(l: Long = 1) = UsrBatches.mark(l)
+    fun MarkCheckUsr(l: Long = 1) = CheckUsr.mark(l)
+
+    fun MarkUsrInIgnite(l: Long = 1) = UsrInIgnite.mark(l)
+    fun MarkUsrNotInIgnite(l: Long = 1) = UsrNotInIgnite.mark(l)
+
     fun MarkInRedis(l: Long = 1, name: String) {
         if (name == "URL") UrlInRedis.mark(l)
         if (name == "TAG") TagInRedis.mark(l)
+        if (name == "USR") UsrInRedis.mark(l)
+
     }
 
     fun MarkNotInRedis(l: Long = 1, name: String) {
         if (name == "URL") UrlNotInRedis.mark(l)
         if (name == "TAG") TagNotInRedis.mark(l)
+        if (name == "USR") UsrNotInRedis.mark(l)
+
     }
 
     fun <T> addGauge(name: String, supplier: Supplier<T>) = metricRegistry.register(name, Gauge<T> { supplier.get() })

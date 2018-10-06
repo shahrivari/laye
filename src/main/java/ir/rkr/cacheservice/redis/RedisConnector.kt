@@ -96,7 +96,7 @@ class RedisConnector(config: Config) {
             }
 
         } catch (e: Exception) {
-            logger.trace(e) { "There is no resource in pool for redis.get." }
+            logger.trace(e) { "There is no resource in pool for redis.mget." }
             return result
         }
     }

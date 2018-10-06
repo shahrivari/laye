@@ -208,6 +208,11 @@ class IgniteConnector(val config: Config, layemetrics: LayeMetrics) {
     }
 
 
+    fun hasKey(key: String):Boolean{
+        return igniteCache.containsKey(key)
+
+    }
+
     fun isNotInRedis(key: String): Boolean {
 
      /*   if (notInRedis.getIfPresent(key) != null) {
