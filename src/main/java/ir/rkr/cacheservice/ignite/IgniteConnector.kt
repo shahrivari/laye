@@ -156,13 +156,32 @@ class IgniteConnector(val config: Config, layemetrics: LayeMetrics) {
     /**
      * [streamAddToNotInRedis] is a function to put key in not redis guava cache.
      * */
-    fun streamAddToNotInRedis(input: List<String>) {
+    fun streamAddToNotInRedis(input: List<String>, metricType: String, withPrefix: Boolean) {
+
+        var prefix = ""
+        if (withPrefix) prefix = metricType.toLowerCase()
         try {
             for (key in input) {
-                notInRedis.put(key, 0)
+                notInRedis.put("$prefix$key", 0)
             }
         } catch (e: Exception) {
-            logger.error(e) { "Error in streamPut" }
+            logger.error(e) { "Error in streamAddToNotInRedis" }
+        }
+
+    }
+
+    /**
+     * [streamAddToNotInRedis] is a function to put key in not redis guava cache.
+     * */
+    fun putToNotInRedis(key: String, metricType: String, withPrefix: Boolean) {
+
+        var prefix = ""
+        if (withPrefix) prefix = metricType.toLowerCase()
+        try {
+            notInRedis.put("$prefix$key", 0)
+
+        } catch (e: Exception) {
+            logger.error(e) { "Error in putToNotInRedis" }
         }
 
     }

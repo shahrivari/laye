@@ -10,7 +10,7 @@ import kotlin.concurrent.thread
 
 
 internal class IgniteFeeder(ignite: IgniteConnector, redis: RedisConnector, queueSize: Int = 100_000,
-                            val layemetrics: LayeMetrics, metricType: String,withPrefix: Boolean = false, addToNotInRedis: Boolean = true) {
+                            val layemetrics: LayeMetrics, metricType: String, withPrefix: Boolean = false) {
 
     private val logger = KotlinLogging.logger {}
     var tmpQueue: BlockingQueue<String> = ArrayBlockingQueue(queueSize)
@@ -27,20 +27,19 @@ internal class IgniteFeeder(ignite: IgniteConnector, redis: RedisConnector, queu
                     if (key != null) keys.add(key)
                 }
 
-
                 if (keys.isNotEmpty()) {
                     val result = redis.mget(keys)
 
                     val availableResult = result.filterValues { it.isPresent }.mapValues { it.value.get() }.toMutableMap()
                     // for (k in availableResult.keys) ignite.put(k,availableResult[k].toString())
                     //ignite.mput(availableResult)
-                    ignite.streamPut(availableResult,metricType,withPrefix)
+                    ignite.streamPut(availableResult, metricType, withPrefix)
                     layemetrics.MarkInRedis(availableResult.size.toLong(), metricType)
 
-                   val notAvaialableResult = result.filterValues { !it.isPresent }.keys.toMutableList()
+                    val notAvaialableResult = result.filterValues { !it.isPresent }.keys.toMutableList()
                     //for (k in notAvaialableResult)  ignite.addToNotInRedis(k)
                     //ignite.multiAddToNotInRedis(notAvaialableResult)
-                    if (addToNotInRedis)    ignite.streamAddToNotInRedis(notAvaialableResult)
+                    ignite.streamAddToNotInRedis(notAvaialableResult, metricType, withPrefix)
                     layemetrics.MarkNotInRedis(notAvaialableResult.size.toLong(), metricType)
 
                     keys.clear()

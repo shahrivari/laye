@@ -46,6 +46,9 @@ class LayeMetrics {
 
     val UsrInRedis = metricRegistry.meter("UsrInRedis")
     val UsrNotInRedis = metricRegistry.meter("UsrNotInRedis")
+    val UsrIn5min = metricRegistry.meter("UsrIn5min")
+    val UsrBlocked = metricRegistry.meter("UsrBlocked")
+
 
     fun MarkUrlBatches(l: Long = 1) = UrlBatches.mark(l)
     fun MarkCheckUrl(l: Long = 1) = CheckUrl.mark(l)
@@ -60,6 +63,7 @@ class LayeMetrics {
     fun MarkTagNotInIgnite(l: Long = 1) = TagNotInIgnite.mark(l)
 
     fun MarkUrlIn5min(l: Long = 1) = UrlIn5min.mark(l)
+    fun MarkUsrIn5min(l: Long = 1) = UsrIn5min.mark(l)
     fun MarkTagIn5min(l: Long = 1) = TagIn5min.mark(l)
 
     fun MarkUsrBatches(l: Long = 1) = UsrBatches.mark(l)
@@ -67,6 +71,8 @@ class LayeMetrics {
 
     fun MarkUsrInIgnite(l: Long = 1) = UsrInIgnite.mark(l)
     fun MarkUsrNotInIgnite(l: Long = 1) = UsrNotInIgnite.mark(l)
+    fun MarkUsrBlocked(l: Long = 1) = UsrBlocked.mark(l)
+
 
     fun MarkInRedis(l: Long = 1, name: String) {
         if (name == "URL") UrlInRedis.mark(l)

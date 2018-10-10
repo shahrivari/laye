@@ -43,7 +43,7 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
     private val redisUsr = RedisConnector(config.getConfig("redis.usr"))
     private val urlQueue = IgniteFeeder(ignite, redisUrl, 100_000, layemetrics, "URL")
     private val tagQueue = IgniteFeeder(ignite, redisTag, 100_000, layemetrics, "TAG")
-    private val usrQueue = IgniteFeeder(ignite, redisUsr, 100_000, layemetrics, "USR",true,false)
+    private val usrQueue = IgniteFeeder(ignite, redisUsr, 100_000, layemetrics, "USR",true)
 
     private val logger = KotlinLogging.logger {}
     /**
@@ -86,6 +86,12 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
 
         layemetrics.MarkCheckUsr(1)
 
+
+        if (ignite.isNotInRedis("usr$key")) {
+            layemetrics.MarkUsrIn5min(1)
+            return "1"
+        }
+
         if (ignite.hasKey("usr$key")) {
             layemetrics.MarkUsrInIgnite(1)
             return "0"
@@ -103,6 +109,8 @@ class JettyRestServer(val ignite: IgniteConnector, val config: Config, val layem
                 return "0"
             }
             layemetrics.MarkNotInRedis(1, "USR")
+            layemetrics.MarkUsrBlocked(1)
+            ignite.putToNotInRedis(key,"USR",true)
             return "1"
         }
     }
